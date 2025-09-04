@@ -4,7 +4,6 @@ using Fermat.EntityFramework.Shared.Extensions;
 using Fermat.EntityFramework.SnapshotLogs.Applications.DTOs.SnapshotAppSettings;
 using Fermat.EntityFramework.SnapshotLogs.Domain.Interfaces.Repositories;
 using Fermat.EntityFramework.SnapshotLogs.Domain.Interfaces.Services;
-using Fermat.Domain.Extensions.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -16,21 +15,20 @@ public class SnapshotAppSettingAppService(
     ILogger<SnapshotAppSettingAppService> logger)
     : ISnapshotAppSettingAppService
 {
-    public async Task<SnapshotAppSettingResponseDto> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<SnapshotAppSettingResponseDto> GetByIdAsync(Guid snapshotLogId, Guid id)
     {
         var matchedSnapshotAppSetting = await snapshotAppSettingRepository.GetAsync(
-            id: id,
-            enableTracking: false,
-            cancellationToken: cancellationToken
+            predicate: item => item.Id == id && item.SnapshotLogId == snapshotLogId,
+            enableTracking: false
         );
 
         return mapper.Map<SnapshotAppSettingResponseDto>(matchedSnapshotAppSetting);
     }
 
-    public async Task<PageableResponseDto<SnapshotAppSettingResponseDto>> GetPageableAndFilterAsync(GetListSnapshotAppSettingRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<PageableResponseDto<SnapshotAppSettingResponseDto>> GetPageableAndFilterAsync(Guid snapshotLogId, GetListSnapshotAppSettingRequestDto request)
     {
         var queryable = snapshotAppSettingRepository.GetQueryable();
-        queryable = queryable.WhereIf(request.SnapshotLogId != null, item => item.SnapshotLogId == request.SnapshotLogId);
+        queryable = queryable.Where(item => item.SnapshotLogId == snapshotLogId);
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
@@ -42,18 +40,18 @@ public class SnapshotAppSettingAppService(
         }
 
         queryable = queryable.AsNoTracking();
-        queryable = queryable.ApplySort(request.Field, request.Order, cancellationToken);
-        var result = await queryable.ToPageableAsync(request.Page, request.PerPage, cancellationToken: cancellationToken);
+        queryable = queryable.ApplySort(request.Field, request.Order);
+        var result = await queryable.ToPageableAsync(request.Page, request.PerPage);
         var matchedSnapshotAppSettings = mapper.Map<List<SnapshotAppSettingResponseDto>>(result.Data);
 
         return new PageableResponseDto<SnapshotAppSettingResponseDto>(matchedSnapshotAppSettings, result.Meta);
     }
 
-    public async Task<int> CleanupOldSnapshotAppSettingAsync(DateTime olderThan, CancellationToken cancellationToken = default)
+    public async Task<int> CleanupOldSnapshotAppSettingAsync(Guid snapshotLogId, DateTime olderThan)
     {
         var queryable = snapshotAppSettingRepository.GetQueryable();
-        queryable = queryable.Where(a => a.CreationTime < olderThan);
-        var countToDelete = await queryable.CountAsync(cancellationToken);
+        queryable = queryable.Where(a => a.CreationTime < olderThan && a.SnapshotLogId == snapshotLogId);
+        var countToDelete = await queryable.CountAsync();
         if (countToDelete == 0)
         {
             return 0;
@@ -72,7 +70,7 @@ public class SnapshotAppSettingAppService(
                 var snapshotAppSettingsToDelete = await queryable
                     .OrderBy(a => a.CreationTime)
                     .Take(batchSize)
-                    .ToListAsync(cancellationToken);
+                    .ToListAsync();
 
                 if (snapshotAppSettingsToDelete.Count == 0)
                 {
@@ -84,8 +82,8 @@ public class SnapshotAppSettingAppService(
                     break;
                 }
 
-                await snapshotAppSettingRepository.DeleteRangeAsync(snapshotAppSettingsToDelete, cancellationToken: cancellationToken);
-                await snapshotAppSettingRepository.SaveChangesAsync(cancellationToken);
+                await snapshotAppSettingRepository.DeleteRangeAsync(snapshotAppSettingsToDelete);
+                await snapshotAppSettingRepository.SaveChangesAsync();
 
                 logger.LogInformation(
                     "[CleanupOldSnapshotAppSettingsAsync] [Action=DeleteRangeAsync()] [Count={Count}] [End]",
@@ -93,20 +91,9 @@ public class SnapshotAppSettingAppService(
                 );
 
                 totalDeleted += snapshotAppSettingsToDelete.Count;
-
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    logger.LogInformation(
-                        "[CleanupOldSnapshotAppSettingsAsync] [Action=DeleteRangeAsync()] [Cancelled] [TotalDeleted={TotalDeleted}]",
-                        totalDeleted
-                    );
-
-                    break;
-                }
-
                 if (totalDeleted > 0 && totalDeleted % (batchSize * 5) == 0)
                 {
-                    await Task.Delay(500, cancellationToken);
+                    await Task.Delay(500);
                 }
             }
             catch (Exception e)

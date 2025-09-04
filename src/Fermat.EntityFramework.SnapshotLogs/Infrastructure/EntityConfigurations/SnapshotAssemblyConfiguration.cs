@@ -23,7 +23,6 @@ public class SnapshotAssemblyConfiguration : IEntityTypeConfiguration<SnapshotAs
         builder.HasOne(item => item.SnapshotLog)
             .WithMany(item => item.SnapshotAssemblies)
             .HasForeignKey(item => item.SnapshotLogId)
-            .OnDelete(DeleteBehavior.Cascade)
-            .IsRequired();
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

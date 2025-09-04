@@ -5,7 +5,7 @@ namespace Fermat.EntityFramework.SnapshotLogs.Domain.Interfaces.Services;
 
 public interface ISnapshotAppSettingAppService
 {
-    Task<SnapshotAppSettingResponseDto> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<PageableResponseDto<SnapshotAppSettingResponseDto>> GetPageableAndFilterAsync(GetListSnapshotAppSettingRequestDto request, CancellationToken cancellationToken = default);
-    Task<int> CleanupOldSnapshotAppSettingAsync(DateTime olderThan, CancellationToken cancellationToken = default);
+    Task<SnapshotAppSettingResponseDto> GetByIdAsync(Guid snapshotLogId, Guid id);
+    Task<PageableResponseDto<SnapshotAppSettingResponseDto>> GetPageableAndFilterAsync(Guid snapshotLogId, GetListSnapshotAppSettingRequestDto request);
+    Task<int> CleanupOldSnapshotAppSettingAsync(Guid snapshotLogId, DateTime olderThan);
 }

@@ -21,7 +21,6 @@ public class SnapshotAppSettingConfiguration : IEntityTypeConfiguration<Snapshot
         builder.HasOne(item => item.SnapshotLog)
             .WithMany(item => item.SnapshotAppSettings)
             .HasForeignKey(item => item.SnapshotLogId)
-            .OnDelete(DeleteBehavior.Cascade)
-            .IsRequired();
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
