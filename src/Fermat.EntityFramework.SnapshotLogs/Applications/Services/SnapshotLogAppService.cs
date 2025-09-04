@@ -15,21 +15,20 @@ public class SnapshotLogAppService(
     ILogger<SnapshotLogAppService> logger)
     : ISnapshotLogAppService
 {
-    public async Task<SnapshotLogResponseDto> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<SnapshotLogResponseDto> GetByIdAsync(Guid id)
     {
         var matchedSnapshotLog = await snapshotLogRepository.GetAsync(
             id: id,
             include: item => item
                 .Include(x => x.SnapshotAssemblies)
                 .Include(x => x.SnapshotAppSettings),
-            enableTracking: false,
-            cancellationToken: cancellationToken
+            enableTracking: false
         );
 
         return mapper.Map<SnapshotLogResponseDto>(matchedSnapshotLog);
     }
 
-    public async Task<PageableResponseDto<SnapshotLogResponseDto>> GetPageableAndFilterAsync(GetListSnapshotLogRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<PageableResponseDto<SnapshotLogResponseDto>> GetPageableAndFilterAsync(GetListSnapshotLogRequestDto request)
     {
         var queryable = snapshotLogRepository.GetQueryable();
         if (!string.IsNullOrWhiteSpace(request.Search))
@@ -47,18 +46,18 @@ public class SnapshotLogAppService(
         }
 
         queryable = queryable.AsNoTracking();
-        queryable = queryable.ApplySort(request.Field, request.Order, cancellationToken);
-        var result = await queryable.ToPageableAsync(request.Page, request.PerPage, cancellationToken: cancellationToken);
+        queryable = queryable.ApplySort(request.Field, request.Order);
+        var result = await queryable.ToPageableAsync(request.Page, request.PerPage);
         var matchedSnapshotLogs = mapper.Map<List<SnapshotLogResponseDto>>(result.Data);
 
         return new PageableResponseDto<SnapshotLogResponseDto>(matchedSnapshotLogs, result.Meta);
     }
 
-    public async Task<int> CleanupOldSnapshotLogAsync(DateTime olderThan, CancellationToken cancellationToken = default)
+    public async Task<int> CleanupOldSnapshotLogAsync(DateTime olderThan)
     {
         var queryable = snapshotLogRepository.GetQueryable();
         queryable = queryable.Where(a => a.CreationTime < olderThan);
-        var countToDelete = await queryable.CountAsync(cancellationToken);
+        var countToDelete = await queryable.CountAsync();
         if (countToDelete == 0)
         {
             return 0;
@@ -77,7 +76,7 @@ public class SnapshotLogAppService(
                 var snapshotLogsToDelete = await queryable
                     .OrderBy(a => a.CreationTime)
                     .Take(batchSize)
-                    .ToListAsync(cancellationToken);
+                    .ToListAsync();
 
                 if (snapshotLogsToDelete.Count == 0)
                 {
@@ -89,8 +88,8 @@ public class SnapshotLogAppService(
                     break;
                 }
 
-                await snapshotLogRepository.DeleteRangeAsync(snapshotLogsToDelete, cancellationToken: cancellationToken);
-                await snapshotLogRepository.SaveChangesAsync(cancellationToken);
+                await snapshotLogRepository.DeleteRangeAsync(snapshotLogsToDelete);
+                await snapshotLogRepository.SaveChangesAsync();
 
                 logger.LogInformation(
                     "[CleanupOldSnapshotLogsAsync] [Action=DeleteRangeAsync()] [Count={Count}] [End]",
@@ -98,20 +97,9 @@ public class SnapshotLogAppService(
                 );
 
                 totalDeleted += snapshotLogsToDelete.Count;
-
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    logger.LogInformation(
-                        "[CleanupOldSnapshotLogsAsync] [Action=DeleteRangeAsync()] [Cancelled] [TotalDeleted={TotalDeleted}]",
-                        totalDeleted
-                    );
-
-                    break;
-                }
-
                 if (totalDeleted > 0 && totalDeleted % (batchSize * 5) == 0)
                 {
-                    await Task.Delay(500, cancellationToken);
+                    await Task.Delay(500);
                 }
             }
             catch (Exception e)

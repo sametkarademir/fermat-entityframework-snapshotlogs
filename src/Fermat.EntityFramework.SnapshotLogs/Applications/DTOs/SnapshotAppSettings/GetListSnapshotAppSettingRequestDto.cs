@@ -13,8 +13,6 @@ public class GetListSnapshotAppSettingRequestDto
     public SortOrderTypes Order { get; set; } = SortOrderTypes.Desc;
     public string? Field { get; set; } = null;
     public string? Search { get; set; } = null;
-
-    public Guid? SnapshotLogId { get; set; }
 }
 
 public class GetListSnapshotAppSettingRequestValidator : AbstractValidator<GetListSnapshotAppSettingRequestDto>
