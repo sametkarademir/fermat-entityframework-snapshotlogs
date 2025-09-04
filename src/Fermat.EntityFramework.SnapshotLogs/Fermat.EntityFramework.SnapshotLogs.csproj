@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <PackageId>Fermat.EntityFramework.SnapshotLogs</PackageId>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <Version>0.0.1</Version>
+        <Version>0.0.2</Version>
         <Authors>Samet Karademir</Authors>
         <Description>A Fermat package for logging HTTP requests using Entity Framework.</Description>
         <PackageTags>dotnet;fermat;entityframework;logging;efcore</PackageTags>
